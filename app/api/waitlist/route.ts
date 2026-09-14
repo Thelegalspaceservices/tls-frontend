@@ -2,8 +2,9 @@
 //
 // Server-side waitlist collection for the /frontend project (no backend
 // dependency). Signups are appended to a Google Spreadsheet via a service
-// account. If the Google env vars aren't configured yet, it falls back to
-// Netlify Blobs (on Netlify) or a local CSV under ./data (for `npm run dev`).
+// account — the sheet is the ONLY storage backend. There is deliberately no
+// file/Blobs fallback: a signup either lands in the sheet or the request fails
+// loudly, so waitlist entries are never written to a local file.
 // A GET to this route streams the full spreadsheet back as a downloadable file.
 //
 // Bot protection: a Cloudflare Turnstile token is required on every POST and is
@@ -11,9 +12,6 @@
 // touched. The routine fails closed — without a secret the route returns 503
 // rather than accepting unverified signups.
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
-import { getStore } from "@netlify/blobs";
 import { google, sheets_v4 } from "googleapis";
 
 export const runtime = "nodejs";
@@ -43,12 +41,13 @@ const CSV_HEADERS: (keyof WaitlistEntry)[] = [
 
 // ── Config ────────────────────────────────────────────────────────────────────
 // Set these in the deploy environment (Vercel → Settings → Environment
-// Variables) or in .env locally:
-//   GOOGLE_SHEET_ID             – the id from your spreadsheet URL
+// Variables) or in .env locally. All three Google values are REQUIRED — the
+// waitlist has no file-based fallback:
+//   GOOGLE_SHEET_ID              – the id from your spreadsheet URL
 //   GOOGLE_SERVICE_ACCOUNT_EMAIL – client_email from the service account JSON
-//   GOOGLE_PRIVATE_KEY          – private_key from the service account JSON
-//   GOOGLE_SHEET_NAME           – optional, defaults to "Sheet1"
-//   TURNSTILE_SECRET_KEY        – Cloudflare Turnstile secret (server-only)
+//   GOOGLE_PRIVATE_KEY           – private_key from the service account JSON
+//   GOOGLE_SHEET_NAME            – optional, defaults to "Sheet1"
+//   TURNSTILE_SECRET_KEY         – Cloudflare Turnstile secret (server-only)
 const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID ?? "";
 const GOOGLE_SERVICE_ACCOUNT_EMAIL =
   process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
@@ -62,46 +61,11 @@ const GOOGLE_SHEET_NAME = process.env.GOOGLE_SHEET_NAME || "Sheet1";
 // browser bundle.
 const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY ?? "";
 
+// All three must be present. A partial config is treated the same as none: the
+// route returns 503 rather than writing signups somewhere nobody is looking.
 const GOOGLE_CONFIGURED = Boolean(
   GOOGLE_SHEET_ID && GOOGLE_SERVICE_ACCOUNT_EMAIL && GOOGLE_PRIVATE_KEY,
 );
-
-// The three Google values must arrive together. A deploy that receives only some
-// of them would silently fall through to Blobs / a local CSV, so signups would
-// land somewhere nobody is looking — treat a partial config as fatal.
-const GOOGLE_VARS = {
-  GOOGLE_SHEET_ID,
-  GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  GOOGLE_PRIVATE_KEY,
-} as const;
-const GOOGLE_VARS_PRESENT = Object.values(GOOGLE_VARS).filter(Boolean).length;
-
-/**
- * Throw when the storage env is partially set. Wholly unset is fine — that is
- * the documented fallback path (Netlify Blobs, or ./data locally).
- */
-function assertStorageConfig(): void {
-  const total = Object.keys(GOOGLE_VARS).length;
-  if (GOOGLE_VARS_PRESENT === 0 || GOOGLE_VARS_PRESENT === total) return;
-
-  const missing = Object.entries(GOOGLE_VARS)
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-
-  throw new Error(
-    `Google Sheets storage is half-configured — missing ${missing.join(", ")}. ` +
-      `Set GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY together, or none of them.`,
-  );
-}
-
-// Netlify sets NETLIFY=true on its build/function runtime; locally it is unset.
-const IS_NETLIFY = process.env.NETLIFY === "true";
-
-const STORE_NAME = "waitlist";
-const BLOB_KEY = "waitlist.csv";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const CSV_PATH = path.join(DATA_DIR, "waitlist.csv");
 
 // ── Google Sheets storage ─────────────────────────────────────────────────────
 let sheetsClient: sheets_v4.Sheets | null = null;
@@ -154,39 +118,6 @@ async function googleRows(): Promise<WaitlistEntry[]> {
     .filter((r) => r.email);
 }
 
-// ── Netlify Blobs storage (fallback when Google isn't configured) ─────────────
-async function readBlobCsv(): Promise<string> {
-  const store = getStore(STORE_NAME);
-  return (await store.get(BLOB_KEY, { type: "text" })) ?? "";
-}
-
-async function appendBlobCsv(row: string): Promise<void> {
-  const store = getStore(STORE_NAME);
-  const existing = await readBlobCsv();
-  const next = existing.endsWith("\n") ? existing : `${existing}\n`;
-  await store.set(BLOB_KEY, `${next}${row}\n`);
-}
-
-// ── Local filesystem storage (fallback for `npm run dev`) ────────────────────
-async function ensureLocalSpreadsheet(): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(CSV_PATH);
-  } catch {
-    await fs.writeFile(CSV_PATH, `${CSV_HEADERS.join(",")}\n`, "utf8");
-  }
-}
-
-async function readLocalCsv(): Promise<string> {
-  await ensureLocalSpreadsheet();
-  return fs.readFile(CSV_PATH, "utf8");
-}
-
-async function appendLocalCsv(row: string): Promise<void> {
-  await ensureLocalSpreadsheet();
-  await fs.appendFile(CSV_PATH, `${row}\n`, "utf8");
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Escape a single CSV cell per RFC 4180 (quotes doubled, wrap in quotes when
 // the value contains a comma, quote, or newline).
@@ -209,24 +140,13 @@ function entriesToCsv(entries: WaitlistEntry[]): string {
   return [CSV_HEADERS.join(","), ...entries.map(toCsvRow)].join("\n") + "\n";
 }
 
-function emailsFromCsv(raw: string): Set<string> {
-  const emails = new Set<string>();
-  for (const line of raw.split("\n").slice(1)) {
-    const email = line.split(",")[1]?.trim().toLowerCase();
-    if (email) emails.add(email);
-  }
-  return emails;
-}
-
-// Returned when this deployment has no working storage backend (e.g. Netlify
-// Blobs on a Netlify deploy, or a read-only filesystem elsewhere). The Google
-// Sheets env vars must be set on the host (Vercel → Settings → Environment
-// Variables) for signups to persist.
+// Returned when the Google Sheets env is missing or partial. There is no file
+// fallback by design, so this fails closed rather than writing signups to disk.
 function storageNotConfiguredResponse() {
   return NextResponse.json(
     {
       error:
-        "Waitlist storage isn't configured on this deployment. Add the Google Sheets env vars (GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY) to your deploy environment and redeploy.",
+        "Waitlist storage isn't configured on this deployment. Add GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY to the deploy environment and redeploy.",
     },
     { status: 503 },
   );
@@ -276,33 +196,6 @@ async function verifyTurnstileToken(
   return data.success === true;
 }
 
-async function fallbackEntries(): Promise<WaitlistEntry[]> {
-  if (IS_NETLIFY) {
-    const raw = await readBlobCsv();
-    const emails = emailsFromCsv(raw);
-    return [...emails].map((email) => ({
-      fullName: "",
-      email,
-      type: "lawyer" as WaitlistVariant,
-      createdAt: "",
-    }));
-  }
-  const raw = await readLocalCsv();
-  return raw
-    .split("\n")
-    .slice(1)
-    .filter((l) => l.trim())
-    .map((line) => {
-      const cols = line.split(",");
-      return {
-        fullName: cols[0] ?? "",
-        email: (cols[1] ?? "").toLowerCase(),
-        type: cols[2] === "user" ? "user" : "lawyer",
-        createdAt: cols[3] ?? "",
-      };
-    });
-}
-
 export async function POST(request: NextRequest) {
   let body: WaitlistPayload;
   try {
@@ -349,80 +242,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fail loudly on a partial Google config rather than quietly falling back to
-  // Blobs / a local CSV and writing signups somewhere unexpected.
-  try {
-    assertStorageConfig();
-  } catch (err) {
-    console.error("[waitlist]", err instanceof Error ? err.message : err);
-    return NextResponse.json(
-      { error: "Waitlist storage is misconfigured on this deployment." },
-      { status: 500 },
-    );
+  // ── Storage: Google Sheets only ────────────────────────────────────────────
+  if (!GOOGLE_CONFIGURED) {
+    return storageNotConfiguredResponse();
   }
 
   try {
-    if (GOOGLE_CONFIGURED) {
-      const existing = await googleRows();
-      if (existing.some((r) => r.email === email)) {
-        return NextResponse.json(
-          { message: "You're already on the waitlist.", duplicate: true },
-          { status: 200 },
-        );
-      }
-      await appendGoogleRow({
-        fullName,
-        email,
-        type,
-        createdAt: new Date().toISOString(),
-      });
-    } else if (IS_NETLIFY) {
-      // Netlify Blobs throws "The environment has not been configured to use
-      // Netlify Blobs" when the deploy isn't set up for it. Surface that as a
-      // clear 503 instead of a generic 500 so the misconfiguration is obvious.
-      let raw: string;
-      try {
-        raw = await readBlobCsv();
-      } catch (blobErr) {
-        console.error("[waitlist] Netlify Blobs unavailable:", blobErr);
-        return storageNotConfiguredResponse();
-      }
-      if (emailsFromCsv(raw).has(email)) {
-        return NextResponse.json(
-          { message: "You're already on the waitlist.", duplicate: true },
-          { status: 200 },
-        );
-      }
-      try {
-        await appendBlobCsv(
-          toCsvRow({
-            fullName,
-            email,
-            type,
-            createdAt: new Date().toISOString(),
-          }),
-        );
-      } catch (blobErr) {
-        console.error("[waitlist] Netlify Blobs write failed:", blobErr);
-        return storageNotConfiguredResponse();
-      }
-    } else {
-      const raw = await readLocalCsv();
-      if (emailsFromCsv(raw).has(email)) {
-        return NextResponse.json(
-          { message: "You're already on the waitlist.", duplicate: true },
-          { status: 200 },
-        );
-      }
-      await appendLocalCsv(
-        toCsvRow({
-          fullName,
-          email,
-          type,
-          createdAt: new Date().toISOString(),
-        }),
+    const existing = await googleRows();
+    if (existing.some((r) => r.email === email)) {
+      return NextResponse.json(
+        { message: "You're already on the waitlist.", duplicate: true },
+        { status: 200 },
       );
     }
+    await appendGoogleRow({
+      fullName,
+      email,
+      type,
+      createdAt: new Date().toISOString(),
+    });
 
     return NextResponse.json(
       { message: "You're on the waitlist!", success: true },
@@ -438,20 +276,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  try {
-    assertStorageConfig();
+  if (!GOOGLE_CONFIGURED) {
+    return storageNotConfiguredResponse();
+  }
 
-    let csv: string;
-    if (GOOGLE_CONFIGURED) {
-      csv = entriesToCsv(await googleRows());
-    } else {
-      try {
-        csv = entriesToCsv(await fallbackEntries());
-      } catch (err) {
-        console.error("[waitlist] failed to read fallback store:", err);
-        return storageNotConfiguredResponse();
-      }
-    }
+  try {
+    const csv = entriesToCsv(await googleRows());
 
     return new NextResponse(csv, {
       status: 200,

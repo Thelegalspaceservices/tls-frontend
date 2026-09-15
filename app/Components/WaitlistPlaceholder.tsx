@@ -21,6 +21,7 @@ declare global {
           callback: (token: string) => void;
           "expired-callback"?: () => void;
           "error-callback"?: () => void;
+          size?: "normal" | "compact" | "flexible";
         },
       ) => string;
       reset: (widgetId?: string) => void;
@@ -115,6 +116,9 @@ export default function WaitlistPlaceholder({
     if (typeof window === "undefined") return;
     if (!window.turnstile || !turnstileContainerRef.current) return;
     if (turnstileWidgetIdRef.current) return; // already rendered, avoid duplicates
+    // Tailwind's `lg` breakpoint is 1024px — match it so the widget's fixed
+    // pixel size only shrinks on mobile, matching the desktop layout as before.
+    const isMobile = window.matchMedia("(max-width: 1023px)").matches;
     turnstileWidgetIdRef.current = window.turnstile.render(
       turnstileContainerRef.current,
       {
@@ -122,6 +126,7 @@ export default function WaitlistPlaceholder({
         callback: (token) => setTurnstileToken(token),
         "expired-callback": () => setTurnstileToken(null),
         "error-callback": () => setTurnstileToken(null),
+        size: isMobile ? "compact" : "normal",
       },
     );
   };
@@ -210,7 +215,7 @@ export default function WaitlistPlaceholder({
 
   if (submitted) {
     return (
-      <div className="w-full flex flex-col justify-center py-8 lg:py-0 max-w-160 mx-auto mt-30 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
+      <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-0 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
         <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 leading-tight font-dmSans text-gray-900">
           Thanks, {fullName.split(" ")[0] || "there"} 😊.
         </h1>
@@ -228,7 +233,7 @@ export default function WaitlistPlaceholder({
   }
 
   return (
-    <div className="w-full flex flex-col justify-center py-8 lg:py-0 max-w-160 mx-auto mt-30 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
+    <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-0 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
       <span className="inline-block w-fit mb-6 px-3 py-1.5 bg-blue-50 text-[#1A56DB] text-[12px] font-medium rounded-full font-dmSans">
         THE LEGAL SPACE IS LAUNCHING SOON!!! 🎉
       </span>
@@ -292,14 +297,21 @@ export default function WaitlistPlaceholder({
         </div>
 
         {/* Real Cloudflare Turnstile widget — the server rejects any submission
-            whose token it can't verify. */}
+            whose token it can't verify. Wrapped in a scaled container so the
+            widget's fixed iframe size shrinks to fit on mobile without
+            breaking the challenge itself. */}
         <Script
           src={TURNSTILE_SCRIPT_SRC}
           async
           defer
           onLoad={() => setTurnstileReady(true)}
         />
-        <div ref={turnstileContainerRef} className="flex justify-center" />
+        <div className="flex justify-start">
+          <div
+            ref={turnstileContainerRef}
+            className="origin-left scale-90 lg:scale-100"
+          />
+        </div>
 
         {/* Submit */}
         <button

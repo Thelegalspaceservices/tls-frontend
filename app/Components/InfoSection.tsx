@@ -65,16 +65,16 @@ export default function InfoSection() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-16 pt-10 border-t border-[#E5E7EB]"
+          className="mt-10 pt-6 border-t border-[#E5E7EB]"
         >
-          <div className="flex flex-wrap items-center justify-center gap-10 lg:gap-16">
+          {/* <div className="flex flex-wrap items-center justify-center gap-10 lg:gap-16">
             {["⚡ Logoipsum", "🐻 logo ipsum", "✕ Logoipsum", "🌐 logo–ipsum", "✈ LOGOIPSUM"].map((logo) => (
               <span key={logo} className="text-gray-400 text-base font-bold tracking-tight">
                 {logo}
               </span>
             ))}
-          </div>
-          <p className="text-center text-sm text-gray-400 mt-5">
+          </div> */}
+          <p className="text-center text-sm text-gray-400 mt-0">
             Building stronger legal connections through meaningful partnerships.
           </p>
         </motion.div>

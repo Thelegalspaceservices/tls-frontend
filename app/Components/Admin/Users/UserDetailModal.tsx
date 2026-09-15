@@ -19,6 +19,7 @@ import {
   useAdminUserActions,
   useAdminVerificationDocuments,
 } from "@/hooks/useAdmin";
+import { getDisplayStatus } from "@/app/utils/adminStatus";
 
 interface Props {
   user: AdminUserDetail | AccountListItem;
@@ -68,16 +69,20 @@ export default function UserDetailModal({ user, onClose }: Props) {
             ? "Client"
             : "Client";
 
-  const normalizedStatus = user.status
-    .toString()
-    .toLowerCase()
-    .replace(/ /g, "_");
+  // `under_review` lives on the satellite profile (lawyerProfile / firmProfile
+  // `.verificationStatus`), not on the account row, so the review state has to
+  // be derived — reading `user.status` alone always reported "active".
+  const displayStatus = getDisplayStatus(user);
+  const accountStatus = user.status.toString().toLowerCase().replace(/ /g, "_");
 
   const isLawyerOrFirm = userType === "Lawyer" || userType === "Law Firm";
   const isClientUser = userType === "Client";
-  const isActive = normalizedStatus === "active";
-  const isSuspended = normalizedStatus === "suspended";
-  const isUnderReview = normalizedStatus === "under_review";
+  const isActive = accountStatus === "active";
+  const isSuspended = accountStatus === "suspended";
+  const isUnderReview = displayStatus === "under_review";
+  // Approve/Reject is the only decision available while a professional is
+  // under review, so don't stack a Suspend button on top of it.
+  const canSuspend = isActive && !isUnderReview;
 
   const phone = "phone" in user ? user.phone : undefined;
   const yearOfCall = "yearOfCall" in user ? user.yearOfCall : undefined;
@@ -243,7 +248,7 @@ export default function UserDetailModal({ user, onClose }: Props) {
             </div>
           )}
 
-          {isActive && (
+          {canSuspend && (
             <button
               onClick={() => run("suspend")}
               disabled={isBusy || !hasReason}

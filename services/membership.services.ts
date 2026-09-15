@@ -32,9 +32,8 @@ export const membershipService = {
    */
   async subscribe(payload?: {
     callbackUrl?: string;
-    context?: string;
-    /** true → charge the 12-month (annual) price; false/absent → 6-month price. */
-    annual?: boolean;
+    /** 6 → the 6-month price; 12 → the 12-month (annual) price. */
+    intervalMonths?: 6 | 12;
   }) {
     const { data } = await api.post<{ data: SubscribeResult }>(
       "/membership/subscribe",

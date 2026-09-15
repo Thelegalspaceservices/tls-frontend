@@ -2,35 +2,32 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import SignInClient from "./SignInClient";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import SignInClientUser from "./SignInClientUser";
 
 export const dynamic = "force-dynamic";
 
-export default function SignInPage() {
-  const [loginType, setLoginType] = useState("user");
-  const router = useRouter();
-  // useEffect(() => {
-  //   const loginType = localStorage.getItem("loginType");
-  //   if (loginType) {
-  //     setLoginType(loginType);
-  //   } else {
-  //     // router.push("/");
-  //   }
-  // }, []);
+function SignInContent() {
+  const [loginType, setLoginType] = useState<"lawyer" | "user">("user");
+  const searchParams = useSearchParams();
 
-   useEffect(() => {
-    // Pick which sign-in form to show based on a stored preference.
-    // If none is set, fall back to the default — NEVER redirect away from
-    // /signin, otherwise visiting it directly (or with cleared storage)
-    // bounces the user back to the homepage.
+  useEffect(() => {
+    const paramType = searchParams.get("type");
+    if (paramType === "lawyer" || paramType === "user") {
+      setLoginType(paramType);
+      localStorage.setItem("loginType", paramType);
+      return;
+    }
     const stored = localStorage.getItem("loginType");
     if (stored === "lawyer" || stored === "user") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoginType(stored);
     }
-  }, []);
+  }, [searchParams]);
 
+  return loginType === "lawyer" ? <SignInClient /> : <SignInClientUser />;
+}
+
+export default function SignInPage() {
   return (
     <Suspense
       fallback={
@@ -39,7 +36,7 @@ export default function SignInPage() {
         </div>
       }
     >
-      {loginType === "lawyer" ? <SignInClient /> : <SignInClientUser />}
+      <SignInContent />
     </Suspense>
   );
 }

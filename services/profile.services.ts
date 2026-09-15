@@ -89,8 +89,152 @@ export interface ProfileArticlesResponse {
   };
 }
 
+// ─── Redesigned lawyer/firm verification flow ──────────────────────────────
+// Types below mirror the integration guide exactly (see LawyerSignup.tsx and
+// its Step* children for where each is used).
+
+export type NbaCheckStatus = "matched" | "unchecked" | "no_match";
+export type BarDetailsOutcome =
+  | "matched"
+  | "unchecked"
+  | "no_match"
+  | "already_registered";
+
+export interface BarDetailsPayload {
+  fullName: string;
+  scn: string;
+  callToBarYear: number;
+  nbaBranch: string;
+}
+
+export interface BarDetailsResponse {
+  error: boolean;
+  message: string;
+  data: {
+    outcome: BarDetailsOutcome;
+    scn?: string;
+    nbaCheck?: {
+      status: NbaCheckStatus;
+      reference?: string;
+      detail?: string;
+    };
+    profile?: Record<string, unknown>;
+    // Present only when outcome === "already_registered". Name/email are
+    // masked server-side — render verbatim, never try to unmask.
+    existingAccount?: {
+      fullName: string;
+      email: string;
+      scn: string;
+      statusLabel: string;
+    };
+  };
+}
+
+export interface DisputeRecord {
+  id: string;
+  caseReference: string;
+  scn: string;
+  status: string;
+  claimantStatement?: string | null;
+  resolutionNote?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+  evidence: { id: string; docType: string; label: string; createdAt: string }[];
+}
+
+export type IdentityOutcome = "matched" | "no_match" | "unchecked";
+
+export interface IdentityResponse {
+  error: boolean;
+  message: string;
+  data: {
+    outcome: IdentityOutcome;
+    detail?: string;
+    // Server-owned — never count attempts client-side.
+    attemptsRemaining?: number;
+    flaggedForReview?: boolean;
+  };
+}
+
+export interface VerificationStatusResponse {
+  error: boolean;
+  message: string;
+  data: {
+    status: "pending" | "under_review" | "verified" | "rejected" | "disputed";
+    barDetails?: Record<string, unknown>;
+    identity?: {
+      status: IdentityOutcome | string;
+      attemptsRemaining?: number;
+      maxAttempts?: number;
+      flaggedForReview?: boolean;
+    };
+    requiredDocTypes?: { docType: string; label: string; uploaded: boolean }[];
+    optionalDocTypes?: unknown[];
+    missingDocTypes?: string[];
+    uploaded?: unknown[];
+    applicationSubmittedAt?: string | null;
+    canSubmitApplication?: boolean;
+    disputeOpen?: boolean;
+  };
+}
+
 export const profileService = {
   getMe: () => api.get<ProfileResponse>("/profile/me"),
+
+  // Step 4 — Your Bar details. Four outcomes to branch on (data.outcome);
+  // see StepBarDetails.tsx.
+  submitBarDetails: (payload: BarDetailsPayload) =>
+    api.post<BarDetailsResponse>("/profile/me/bar-details", payload),
+
+  // Step 4b — "Someone is impersonating me." Idempotent: a second click
+  // returns alreadyFlagged: true with the same case reference.
+  flagBarDetailsDispute: (payload: { scn: string; statement?: string }) =>
+    api.post<{ data: { dispute: DisputeRecord; alreadyFlagged: boolean } }>(
+      "/profile/me/bar-details/dispute",
+      payload,
+    ),
+
+  uploadDisputeEvidence: (disputeId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post<{ data: { dispute: DisputeRecord } }>(
+      `/profile/me/bar-details/dispute/${disputeId}/evidence`,
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+  },
+
+  getBarDetailsDispute: () =>
+    api.get<{ data: { dispute: DisputeRecord | null } }>(
+      "/profile/me/bar-details/dispute",
+    ),
+
+  // Step 6 — Verify your identity (NIN). The NIN itself is never stored.
+  verifyIdentity: (payload: { nin: string; consent: boolean }) =>
+    api.post<IdentityResponse>("/profile/me/identity", payload),
+
+  // Step 7 — Complete Registration. Idempotent — already-submitted returns
+  // 200 with submitted: false.
+  submitApplication: () =>
+    api.post<{ data: { verificationStatus: string; submitted: boolean } }>(
+      "/profile/me/application",
+    ),
+
+  // Step 8/9 — backs the "under review" screen and resume-on-login.
+  getVerification: () =>
+    api.get<VerificationStatusResponse>("/profile/me/verification"),
+
+  // Steps 11–13 — the wizard draft. Shallow-merged server-side, Redis-backed,
+  // 7-day TTL. GET on wizard mount to rehydrate (survives the Paystack
+  // round-trip / a closed tab); DELETE for an explicit "start over".
+  getOnboardingDraft: () =>
+    api.get<{ data: Record<string, unknown> }>("/profile/me/onboarding-draft"),
+  saveOnboardingDraft: (payload: Record<string, unknown>) =>
+    api.post<{ data: Record<string, unknown> }>(
+      "/profile/me/onboarding-draft",
+      payload,
+    ),
+  clearOnboardingDraft: () => api.delete("/profile/me/onboarding-draft"),
 
   getById: (accountId: string) =>
     api.get<ProfileResponse>(`/profile/${accountId}`),

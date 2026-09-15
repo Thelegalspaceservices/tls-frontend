@@ -1,39 +1,54 @@
-// app/Components/Lawyer-Signup/StepVerification.tsx
+// app/Components/Lawyer-Signup/StepCertUpload.tsx
 "use client";
 
 import { useState, useRef } from "react";
 import { UploadCloud, FileText, X, Loader2 } from "lucide-react";
-import { AccountType } from "./LawyerSignup";
+import { registerService } from "@/services/auth.register.services";
 
 interface Props {
-  accountType: AccountType;
-  onFinish: (file: File) => Promise<void>;
-  isLoading: boolean;
+  onContinue: () => void;
 }
 
-export default function StepVerification({
-  accountType,
-  onFinish,
-  isLoading,
-}: Props) {
+export default function StepCertUpload({ onContinue }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (f: File) => {
-    if (f.size > 20 * 1024 * 1024) {
-      setError("File must be under 20MB.");
+    if (f.size > 25 * 1024 * 1024) {
+      setError("File must be under 25MB.");
       return;
     }
     setError("");
     setFile(f);
   };
 
+  const handleContinue = async () => {
+    setError("");
+    if (!file) {
+      setError("Please upload the required document.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await registerService.uploadDocument(file, "call_to_bar_cert");
+      onContinue();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Couldn't upload your document. Please try again.";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-md">
       <h2 className="text-[28px] sm:text-[32px] font-semibold text-gray-900 mb-2 font-dmSans leading-tight">
-        Verify Your Professional Status
+        Upload your Call to Bar certificate
       </h2>
       <p className="text-[14px] text-gray-500 mb-7 font-dmSans leading-relaxed">
         To maintain the integrity of The Legal Space, all lawyers are required
@@ -41,12 +56,9 @@ export default function StepVerification({
       </p>
 
       <p className="text-[13px] font-medium text-gray-700 mb-2 font-dmSans">
-        {accountType === "lawyer"
-          ? "Call to Bar Certificate"
-          : "CAC Registration Document"}
+        Call to Bar Certificate
       </p>
 
-      {/* Drop zone */}
       <div
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
@@ -78,7 +90,6 @@ export default function StepVerification({
             if (f) handleFile(f);
           }}
         />
-
         {file ? (
           <div className="flex items-center justify-center gap-3">
             <FileText className="w-8 h-8 text-green-500" />
@@ -116,21 +127,17 @@ export default function StepVerification({
         )}
       </div>
 
-      {error && <p className="text-[12px] text-red-500 mb-3">{error}</p>}
+      {error && (
+        <p className="text-[12px] text-red-500 mb-3 font-dmSans">{error}</p>
+      )}
 
       <button
-        onClick={async () => {
-          if (!file) {
-            setError("Please upload the required document.");
-            return;
-          }
-          await onFinish(file);
-        }}
+        onClick={handleContinue}
         disabled={isLoading}
         className="w-full py-3.5 bg-[#1A56DB] text-white text-[14px] font-medium rounded-xl hover:bg-[#1648b8] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 font-dmSans"
       >
         {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-        {isLoading ? "Completing registration…" : "Complete Registration"}
+        {isLoading ? "Uploading…" : "Continue"}
       </button>
     </div>
   );

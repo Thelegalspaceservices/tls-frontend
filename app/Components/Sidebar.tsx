@@ -375,9 +375,6 @@ export default function Sidebar() {
               initials
             )}
           </div>
-          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border mb-2.5 bg-white text-gray-500 border-gray-200">
-            {role.charAt(0) + role.slice(1).toLowerCase()}
-          </span>
           <p className="text-[13px] font-medium text-gray-900 mb-3">
             {user?.fullName}
           </p>
@@ -431,11 +428,10 @@ export default function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-2.5 px-2.5 py-[12px]  text-[14px] mb-[14px]  transition-colors ${
-                isActive
+              className={`flex items-center gap-2.5 px-2.5 py-[12px]  text-[14px] mb-[14px]  transition-colors ${isActive
                   ? "bg-blue-50 text-blue-700 font-medium"
                   : "text-gray-500 hover:bg-white hover:text-gray-900"
-              }`}
+                }`}
             >
               <Icon
                 className={`w-4 h-4 shrink-0 ${isActive ? "text-blue-600" : "text-gray-400"}`}

@@ -121,7 +121,7 @@ export default function Step3Verification({
                   or drag and drop
                 </p>
                 <p className="text-[12px] text-gray-400 mt-1">
-                  PDF (max. 20mb)
+                  PDF (max. 25MB)
                 </p>
                 {/* PDF icon decoration */}
                 <div className="absolute bottom-3 right-4 opacity-30">

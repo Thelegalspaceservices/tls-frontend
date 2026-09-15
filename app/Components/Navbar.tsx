@@ -23,15 +23,6 @@ const navLinks = [
   { label: "FAQ's", href: "#faqs" },
 ];
 
-function scrollToSection(href: string) {
-  const id = href.replace("#", "");
-  const el = document.getElementById(id);
-  if (!el) return;
-  const offset = 90;
-  const top = el.getBoundingClientRect().top + window.scrollY - offset;
-  window.scrollTo({ top, behavior: "smooth" });
-}
-
 type NavbarProps = {
   /**
    * Kept for API compatibility with callers; no longer changes styling
@@ -46,13 +37,37 @@ export default function Navbar({ strongBlur = false }: NavbarProps) {
   const router = useRouter();
   const usePathName = usePathname();
 
-  const loginType = (type: "lawyer" | "user") => {
-    localStorage.setItem("loginType", type);
-    if (usePathName === "/signin") {
-      window.location.reload();
+  const scrollToSection = (href: string) => {
+    const id = href.replace("#", "");
+    if (usePathName !== "/") {
+      router.push(`/#${id}`);
       return;
     }
-    router.replace("/signin");
+    const el = document.getElementById(id);
+    if (!el) return;
+    const offset = 90;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (usePathName === "/" && typeof window !== "undefined" && window.location.hash) {
+      const id = window.location.hash.replace("#", "");
+      const timer = setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          const offset = 90;
+          const top = el.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top, behavior: "smooth" });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [usePathName]);
+
+  const loginType = (type: "lawyer" | "user") => {
+    localStorage.setItem("loginType", type);
+    router.push(`/signin?type=${type}`);
   };
 
   return (
@@ -78,7 +93,7 @@ export default function Navbar({ strongBlur = false }: NavbarProps) {
             aria-label="Go to top"
           >
             <Image
-              src="/logo.png"
+              src="/logoblack8k.png"
               alt="The Legal Space"
               width={120}
               height={32}

@@ -10,15 +10,22 @@ interface Props {
   accountType: AccountType;
   onNext: (data: { practiceAreaIds: string[] }) => void;
   isSaving?: boolean;
+  /** Previously-selected area ids, rehydrated from the onboarding draft. */
+  initialIds?: string[];
 }
 
 const LAWYER_MAX = 2;
 const FIRM_MAX = 7;
 
-export default function StepPracticeAreas({ accountType, onNext, isSaving = false }: Props) {
+export default function StepPracticeAreas({
+  accountType,
+  onNext,
+  isSaving = false,
+  initialIds = [],
+}: Props) {
   const { data: allAreas = [], isLoading } = usePracticeAreas();
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(initialIds);
   const [error, setError] = useState("");
 
   const maxSelect = accountType === "firm" ? FIRM_MAX : LAWYER_MAX;

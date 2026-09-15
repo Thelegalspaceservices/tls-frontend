@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "../Components/Admin/AdminSidebar";
-import { useAuth } from "../context/AuthContext";
+import { getPostAuthRoute, useAuth } from "../context/AuthContext";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,10 @@ export default function AdminLayout({
       return;
     }
     if (user && user.role !== "ADMIN") {
-      router.replace("/dashboard/feeds");
+      // Route through getPostAuthRoute so a PENDING_PROFESSIONAL lands on the
+      // setup wizard rather than being bounced to /dashboard/feeds and then
+      // rejected again by the dashboard guard.
+      router.replace(getPostAuthRoute(user));
     }
   }, [user, isLoading, router]);
 

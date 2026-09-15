@@ -686,7 +686,9 @@ function CommunityView({
     setError(null);
     setLoading(true);
     try {
-      const res = await membershipService.subscribe({ annual: isAnnual });
+      const res = await membershipService.subscribe({
+        intervalMonths: isAnnual ? 12 : 6,
+      });
       if (res.data?.authorizationUrl) {
         window.location.href = res.data.authorizationUrl;
       } else {

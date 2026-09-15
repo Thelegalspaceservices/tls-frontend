@@ -9,9 +9,10 @@ the one-time Google Cloud setup and how to wire the values into the app.
 - `POST /api/waitlist` → appends a row to your Google Sheet via a **service account**.
 - `GET /api/waitlist` → reads all rows from the sheet and streams them back as a
   downloadable CSV (used by the admin "Download Waitlist" button).
-- If the Google env vars are **not configured** yet, the route gracefully falls back:
-  - on Netlify → Netlify Blobs
-  - locally (`npm run dev`) → `./data/waitlist.csv`
+- Google Sheets is the **only** storage backend — there is no file/Blobs
+  fallback. If the Google env vars are missing or partial, the route fails closed
+  with an HTTP 503 and writes nothing, rather than dropping signups into a local
+  file.
 
 ## 1. Create the Google Sheet
 
@@ -78,9 +79,11 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=waitlist-writer@tls-waitlist.iam.gserviceaccount.co
 GOOGLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----\n
 ```
 
-### Netlify
+### Deployed host (Vercel or Netlify)
 
-Add the same three variables in **Site settings → Environment variables**:
+Add the same three variables to the deploy environment — **Vercel** → Project
+Settings → Environment Variables (Production, Preview and Development), or
+**Netlify** → Site settings → Environment variables:
 
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
@@ -103,30 +106,30 @@ Then redeploy. No build-time secrets — these are read at runtime by the
   ignored.
 - The Google Sheets API is only called server-side (in the `/api/waitlist` route),
   never from the browser — the service account key is never exposed to clients.
-- If you later remove the Google env vars, the route falls back to Netlify Blobs /
-  local CSV without any code change.
+- If the Google env vars are removed, the route stops accepting signups (HTTP 503)
+  instead of falling back to a file — waitlist entries are never written to disk.
 
 ## Troubleshooting
 
-### Deployed site returns `"Something went wrong saving your signup. Please try again."` (HTTP 500)
+### Deployed site returns `"Waitlist storage isn't configured on this deployment..."` (HTTP 503)
 
-This almost always means the deployed host (Netlify) is missing the Google env
-vars, so the route fell back to **Netlify Blobs**, which isn't configured for the
-site. Since `.env` is gitignored, the values in your local `.env` are **not**
-deployed.
+The deployed host is missing — or has only some of — the Google env vars. Since
+`.env` is gitignored, the values in your local `.env` are **not** deployed, and
+the waitlist no longer falls back to a file: it fails closed instead.
 
-Fix — add the three vars to **Netlify → Site settings → Environment variables**
-(matching `.env`), then redeploy:
+Fix — add the three vars to the deploy environment (Vercel → Project Settings →
+Environment Variables, or Netlify → Site settings → Environment variables),
+matching `.env`, then redeploy:
 
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 - `GOOGLE_PRIVATE_KEY` (keep the literal `\n` escapes intact)
 
-### Deployed site returns `"Waitlist storage isn't configured on this deployment..."` (HTTP 503)
+### Deployed site returns `"Something went wrong saving your signup. Please try again."` (HTTP 500)
 
-Same root cause. The route now detects an unconfigured Netlify Blobs environment
-and returns this explicit message instead of a generic 500. Add the Google env
-vars above and redeploy.
+The Google env vars are present, but the write failed — almost always because the
+service account hasn't been shared on the sheet as **Editor** (step 3 above), or
+the Sheets API isn't enabled for the project. Re-check steps 2–3.
 
 ### Duplicate email still shows the success screen
 

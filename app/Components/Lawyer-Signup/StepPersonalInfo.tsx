@@ -2,7 +2,15 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Mail, User, Phone, Calendar, MapPin, Loader2 } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  User,
+  Phone,
+  Calendar,
+  MapPin,
+  Loader2,
+} from "lucide-react";
 import { AccountType } from "./LawyerSignup";
 
 interface Props {
@@ -10,6 +18,8 @@ interface Props {
   email: string;
   onNext: (data: Record<string, string>) => void;
   isLoading?: boolean;
+  /** Values rehydrated from the saved onboarding draft, if any. */
+  initial?: Record<string, string>;
 }
 
 const NIGERIAN_STATES = [
@@ -57,20 +67,24 @@ export default function StepPersonalInfo({
   email,
   onNext,
   isLoading = false,
+  initial = {},
 }: Props) {
   const isLawyer = accountType === "lawyer";
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [firmName, setFirmName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [callToBarYear, setCallToBarYear] = useState("");
-  const [firmEstablishmentYear, setFirmEstablishmentYear] = useState("");
-  const [locationCity, setLocationCity] = useState("");
+  const [firstName, setFirstName] = useState(initial.firstName ?? "");
+  const [lastName, setLastName] = useState(initial.lastName ?? "");
+  const [firmName, setFirmName] = useState(initial.firmName ?? "");
+  const [phone, setPhone] = useState(initial.phone ?? "");
+  const [callToBarYear, setCallToBarYear] = useState(
+    initial.callToBarYear ?? "",
+  );
+  const [firmEstablishmentYear, setFirmEstablishmentYear] = useState(
+    initial.firmEstablishmentYear ?? "",
+  );
+  const [locationCity, setLocationCity] = useState(initial.locationCity ?? "");
   const [error, setError] = useState("");
 
-  const boxCls =
-    "border border-gray-200 rounded-xl overflow-hidden bg-white";
+  const boxCls = "border border-gray-200 rounded-xl overflow-hidden bg-white";
   const inputCls =
     "w-full px-3 py-3 text-[14px] outline-none focus:border-[#1A56DB] transition-colors bg-transparent placeholder:text-gray-400 font-dmSans";
 
@@ -180,8 +194,8 @@ export default function StepPersonalInfo({
             />
           </div>
           <p className="text-[11px] text-gray-400 pt-1.5 px-1">
-            Your number will remain confidential and will only be shared if
-            you choose to do so.
+            Your number will remain confidential and will only be shared if you
+            choose to do so.
           </p>
         </div>
 

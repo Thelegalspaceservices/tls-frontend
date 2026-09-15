@@ -61,23 +61,82 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/**
+ * The onboarding wizard, and the ONLY place a PENDING_PROFESSIONAL may be.
+ *
+ * That role means "signed up but onboarding is not finished", so the account
+ * must never reach an authenticated app surface — not /dashboard, not /admin,
+ * and not any `?redirect=` target. It stays confined here until the backend
+ * promotes the role (to LAWYER/FIRM) at the end of setup.
+ */
+export const PROFESSIONAL_SETUP_PATH = "/register/lawyer-setup";
+
+/**
+ * True while the account is still mid-onboarding as a professional.
+ *
+ * Deliberately takes a structural argument (not a full account) so the guard
+ * can be reused for a cached `user` object that is still being hydrated.
+ */
+export function isPendingProfessional(
+  account: Pick<AuthResponse["data"]["account"], "role"> | null | undefined,
+): boolean {
+  return account?.role === "PENDING_PROFESSIONAL";
+}
+
 // ✅ Routing helper — shared between login and register
+//
+// Routes on onboarding.nextStep, per the integration guide's core rule:
+// do NOT infer progress from lawyerProfile/firmProfile being null — the
+// profile is now created early in the flow, so that stopped meaning
+// "not finished". The null-profile checks below only run as a fallback
+// for accounts/backends that predate the `onboarding` field.
 export function getPostAuthRoute(
   account: AuthResponse["data"]["account"],
 ): string {
   if (account.role === "ADMIN") {
     return "/admin";
   }
-  if (account.role === "PENDING_PROFESSIONAL") {
-    return "/register/lawyer-setup";
+  if (isPendingProfessional(account)) {
+    return PROFESSIONAL_SETUP_PATH;
   }
-  if (account.role === "LAWYER" && !account.lawyerProfile) {
-    return "/register/lawyer-setup";
-  }
-  if (account.role === "FIRM" && !account.firmProfile) {
-    return "/register/lawyer-setup";
+  if (account.role === "LAWYER" || account.role === "FIRM") {
+    const nextStep = account.onboarding?.nextStep;
+    if (nextStep && nextStep !== "complete") {
+      return "/register/lawyer-setup";
+    }
+    if (nextStep === "complete") {
+      return "/dashboard/feeds";
+    }
+    // No onboarding field at all (older backend) — fall back to the old
+    // heuristic rather than assuming completion.
+    if (account.role === "LAWYER" && !account.lawyerProfile) {
+      return "/register/lawyer-setup";
+    }
+    if (account.role === "FIRM" && !account.firmProfile) {
+      return "/register/lawyer-setup";
+    }
   }
   return "/dashboard/feeds";
+}
+
+/**
+ * Single source of truth for "where does this account go after signing in?".
+ *
+ * Confinement beats the `?redirect=` hint deliberately. Honouring a redirect
+ * param for a PENDING_PROFESSIONAL is precisely how an unfinished account used
+ * to end up inside /dashboard: `/signin?redirect=/dashboard/feeds` was
+ * evaluated before the role fallback, so the param won. Here the role is
+ * checked first and nothing can override it.
+ */
+export function resolvePostAuthRoute(
+  account: AuthResponse["data"]["account"],
+  requested?: string | null,
+): string {
+  if (isPendingProfessional(account)) return PROFESSIONAL_SETUP_PATH;
+  if (requested?.startsWith("/") && !requested.startsWith("//")) {
+    return requested;
+  }
+  return getPostAuthRoute(account);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -236,16 +295,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const classifyError = (err: unknown): AuthError => {
+    // If the error is already an AuthError carrying a known AuthErrorCode
+    // (e.g. the "Unexpected response." thrown inside login), pass it through
+    // unchanged instead of re-deriving a generic message. This also guards the
+    // google/register flows that re-classify errors they just built.
+    const KNOWN_CODES: AuthErrorCode[] = [
+      "INVALID_CREDENTIALS",
+      "ACCOUNT_NOT_FOUND",
+      "ACCOUNT_EXISTS",
+      "REGISTRATION_FAILED",
+      "SESSION_EXPIRED",
+      "NETWORK_ERROR",
+      "SERVER_ERROR",
+      "UNKNOWN_ERROR",
+    ];
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      typeof (err as AuthError).message === "string" &&
+      KNOWN_CODES.includes((err as AuthError).code as AuthErrorCode)
+    ) {
+      return err as AuthError;
+    }
     const { status, message, code } = parseApiError(err);
+    // Prefer the backend's own message from the network response so the user
+    // sees exactly what the API returned (these messages are written to be
+    // shown as-is). The friendly text below is only a fallback when the
+    // server supplied no message of its own.
+    const backendMessage = (() => {
+      if (typeof err === "object" && err !== null) {
+        const msg = (err as { response?: { data?: { message?: unknown } } })
+          ?.response?.data?.message;
+        if (typeof msg === "string" && msg.trim()) return msg.trim();
+      }
+      return null;
+    })();
     if (code === "NETWORK_ERROR")
       return { code: "NETWORK_ERROR", message: "No internet connection." };
     if (status >= 500)
       return {
         code: "SERVER_ERROR",
-        message: "Server error. Please try again.",
+        message: backendMessage ?? "Server error. Please try again.",
       };
     if (status === 404 || message.toLowerCase().includes("not found"))
-      return { code: "ACCOUNT_NOT_FOUND", message: "Account not found." };
+      return {
+        code: "ACCOUNT_NOT_FOUND",
+        message: backendMessage ?? "Account not found.",
+      };
     if (
       status === 401 ||
       message.toLowerCase().includes("invalid") ||
@@ -253,16 +349,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
       return {
         code: "INVALID_CREDENTIALS",
-        message: "Incorrect email or password.",
+        message: backendMessage ?? "Incorrect email or password.",
       };
     if (status === 409 || message.toLowerCase().includes("already exists"))
       return {
         code: "ACCOUNT_EXISTS",
-        message: "An account with this email already exists.",
+        message: backendMessage ?? "An account with this email already exists.",
       };
     return {
       code: "UNKNOWN_ERROR",
-      message: message || "Something went wrong.",
+      message: (backendMessage ?? message) || "Something went wrong.",
     };
   };
 
@@ -280,14 +376,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /** Read `?redirect=` from the current URL and return it if it's an internal path. */
-  function resolveRedirect(fallback: string): string {
-    if (typeof window === "undefined") return fallback;
+  /**
+   * Read `?redirect=` from the current URL, returning it only when it is an
+   * internal path. `//evil.com` is rejected too — it starts with "/" but is
+   * protocol-relative, so accepting it would make this an open redirect.
+   */
+  function getRequestedRedirect(): string | null {
+    if (typeof window === "undefined") return null;
     const redirect = new URLSearchParams(window.location.search).get(
       "redirect",
     );
-    if (redirect && redirect.startsWith("/")) return redirect;
-    return fallback;
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      return redirect;
+    }
+    return null;
   }
 
   const login = async (payload: LoginPayload): Promise<void> => {
@@ -299,11 +401,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = response.data.data;
       saveSession(data);
 
-      // ✅ Route based on profile completion unless a ?redirect= param was given
-      const route = resolveRedirect(getPostAuthRoute(data.account));
-      router.replace(route);
+      // ✅ Route on profile completion. A PENDING_PROFESSIONAL is confined to
+      // the setup wizard and cannot be redirected past it — see
+      // resolvePostAuthRoute.
+      router.replace(
+        resolvePostAuthRoute(data.account, getRequestedRedirect()),
+      );
     } catch (err: unknown) {
-      if (typeof err === "object" && err !== null && "code" in err) throw err;
+      // Always classify so the backend message from the network response is
+      // surfaced. (Axios errors carry a `code` property, so an unconditional
+      // "if it has a code, rethrow raw" check would swallow the real message.)
       throw classifyError(err);
     }
   };
@@ -324,16 +431,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (googleAvatarUrl && !data.account.avatarUrl) {
         await syncGoogleAvatar(googleAvatarUrl);
       }
-      // ✅ Route based on profile completion unless a ?redirect= param was given
-      const route = resolveRedirect(getPostAuthRoute(data.account));
-      router.replace(route);
+      // ✅ Same resolution as the email path — confinement first, then the
+      // `?redirect=` hint, then the role's default route.
+      router.replace(
+        resolvePostAuthRoute(data.account, getRequestedRedirect()),
+      );
     };
 
     try {
       const response = await attemptLogin();
-      // check if the user role is "PENDING_PROFESSIONAL"
-      if (response.data.data.account.role === "PENDING_PROFESSIONAL") {
-        router.replace(resolveRedirect("/register/lawyer-setup"));
+      // A PENDING_PROFESSIONAL is confined to the wizard — never a landing
+      // page and never a `?redirect=` target.
+      if (isPendingProfessional(response.data.data.account)) {
+        router.replace(PROFESSIONAL_SETUP_PATH);
         return;
       } else {
         await handlePostLogin(response.data.data, avatarUrl);
@@ -349,9 +459,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: "USER",
           });
           const response = await attemptLogin();
-          // check if the user role is "PENDING_PROFESSIONAL"
-          if (response.data.data.account.role === "PENDING_PROFESSIONAL") {
-            router.replace(resolveRedirect("/register/lawyer-setup"));
+          // Same confinement as the branch above.
+          if (isPendingProfessional(response.data.data.account)) {
+            router.replace(PROFESSIONAL_SETUP_PATH);
             return;
           }
           await handlePostLogin(response.data.data, avatarUrl);

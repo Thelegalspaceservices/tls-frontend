@@ -3,7 +3,11 @@
 
 import { useRouter } from "next/navigation";
 import { ShieldAlert, ArrowLeft } from "lucide-react";
-import { useAuth, getPostAuthRoute } from "../context/AuthContext";
+import {
+  useAuth,
+  getPostAuthRoute,
+  isPendingProfessional,
+} from "../context/AuthContext";
 
 const ROLE_LABELS: Record<string, string> = {
   USER: "Individual",
@@ -24,6 +28,9 @@ export default function AccessRestricted({ message }: AccessRestrictedProps) {
 
   const roleLabel = user?.role ? (ROLE_LABELS[user.role] ?? "account") : null;
   const homeRoute = user ? getPostAuthRoute(user) : "/signin";
+  // getPostAuthRoute sends a PENDING_PROFESSIONAL to the setup wizard, so the
+  // primary action must not promise a dashboard it cannot open.
+  const isPending = isPendingProfessional(user);
 
   const explanation =
     message ??
@@ -58,7 +65,11 @@ export default function AccessRestricted({ message }: AccessRestrictedProps) {
             onClick={() => router.push(homeRoute)}
             className="w-full py-3 rounded-xl bg-[#1A56DB] text-[14px] font-medium text-white shadow-sm transition hover:bg-[#1648b8] active:scale-[0.99]"
           >
-            {user ? "Back to my dashboard" : "Sign in"}
+            {!user
+              ? "Sign in"
+              : isPending
+                ? "Continue profile setup"
+                : "Back to my dashboard"}
           </button>
           <button
             type="button"

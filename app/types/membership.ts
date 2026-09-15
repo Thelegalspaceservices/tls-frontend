@@ -73,6 +73,8 @@ export interface SubscribeResult {
   authorizationUrl: string;
   reference: string;
   accessCode: string;
+  amountKobo: number;
+  intervalMonths: number;
   plan: PlanView;
 }
 

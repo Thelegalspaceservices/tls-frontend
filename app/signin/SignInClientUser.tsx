@@ -171,33 +171,28 @@ export default function SignInClientUser() {
       <Navbar />
 
       {/* Main content area — vertically centered */}
-      <main className="flex-1 w-full flex items-center">
-        <div className="w-full min-h-[90vh] grid grid-cols-1 lg:grid-cols-2">
-          {/* Illustration — desktop only, fills full height */}
-          <div className="hidden lg:block relative">
-            <Image
-              src={signinIllustration}
-              alt="The Legal Space community illustration"
-              fill
-              className="object-cover"
-              priority
-            />
-          </div>
-
-          {/* Sign-in content — consistent 16px gap on left (from image) and right */}
-          {WAITLIST_ENABLED ? (
-            <div className="w-full flex items-center justify-center px-4 py-16">
-              <div className="w-full max-w-lg">
-                <WaitlistPlaceholder />
-              </div>
+      <main className="flex-1 w-full flex items-center pb-0">
+        <div className="w-full mx-auto mt-30 lg:mt-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-center gap-2">
+            {/* Illustration — desktop only */}
+            <div className="hidden lg:block">
+              <Image
+                src={signinIllustration}
+                alt="The Legal Space community illustration"
+                className="w-full h-auto object-cover"
+                priority
+              />
             </div>
-          ) : (
-            <div className="w-full flex items-center justify-center px-4 py-16">
-              <div className="w-full max-w-lg">
-                <h1 className="text-3xl sm:text-3xl font-semibold tracking-tight mb-3 leading-tight font-dmSans">
+
+            {/* Sign-in content */}
+            {WAITLIST_ENABLED ? (
+              <WaitlistPlaceholder variant="user" />
+            ) : (
+              <div className="w-full px-8 md:px-20 text-left">
+                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 leading-tight font-dmSans">
                   Welcome to The Legal Space
                 </h1>
-                <p className="text-base sm:text-md text-gray-500 mb-8 leading-relaxed font-dmSans">
+                <p className="text-base sm:text-lg text-gray-500 mb-8 leading-relaxed font-dmSans">
                   Access legal support, professional insights, and trusted
                   connections all in one place.
                 </p>
@@ -205,7 +200,7 @@ export default function SignInClientUser() {
                 {/* Errors */}
                 {(callbackError || error) && (
                   <div className="mb-4 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-[13px] text-red-600">
+                    <p className="text-[13px] text-red-600 font-dmSans">
                       {error ||
                         (callbackError === "google_failed"
                           ? "Google sign in failed. Please try again."
@@ -261,8 +256,8 @@ export default function SignInClientUser() {
                   </span>
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </main>
 

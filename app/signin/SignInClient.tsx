@@ -8,7 +8,7 @@ import { AuthError, useAuth } from "../context/AuthContext";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
-import signupIllustration from "../../public/signup-illustration.png";
+import loginHeroImage from "../../public/signup-illustration.png";
 import Navbar from "../Components/Navbar";
 import Footer from "../Components/Footer";
 import WaitlistPlaceholder from "../Components/WaitlistPlaceholder";
@@ -132,13 +132,21 @@ export default function SignInClient() {
 
       {/* Main content area — vertically centered */}
       <main className="flex-1 w-full flex items-center pb-0">
-        <div className="w-full  mx-auto s">
+        {/*
+          mt-30 lg:mt-0 keeps content clear of the fixed Navbar on small
+          viewports (main is vertically centered within the full-height
+          flex column, and the fixed nav takes up no flex space, so short
+          mobile screens were centering the "Welcome Back" heading partly
+          underneath it). Mirrors the same offset already used in
+          StepEmail.tsx for consistency.
+        */}
+        <div className="w-full mx-auto mt-30 lg:mt-0">
           <div className="grid grid-cols-1 lg:grid-cols-2  items-center gap-2">
             {/* Illustration — desktop only */}
             <div className="hidden lg:block">
               <Image
-                src={signupIllustration}
-                alt="The Legal Space community illustration"
+                src={loginHeroImage}
+                alt="Lawyer reviewing documents at her desk"
                 className="w-full h-auto object-cover"
                 priority
               />
@@ -147,7 +155,7 @@ export default function SignInClient() {
             {/* Sign-in content */}
             {/* Waitlist variant is a placeholder and will be redesigned. */}
             {WAITLIST_ENABLED ? (
-              <WaitlistPlaceholder />
+              <WaitlistPlaceholder variant="lawyer" />
             ) : (
               <div className="w-full px-8 md:px-20 text-left">
                 <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 leading-tight font-dmSans">

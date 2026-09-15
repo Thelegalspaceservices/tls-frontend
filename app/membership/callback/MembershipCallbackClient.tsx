@@ -29,23 +29,33 @@ export default function MembershipCallbackClient() {
         }
       }
 
-      // Figure out where this user was in onboarding, per the resume rules:
-      // - profile already exists → fully onboarded, go to dashboard
-      // - role LAWYER/FIRM, no profile yet → back into the setup wizard
-      // - anything else → safest fallback is the dashboard
+      // Figure out where this user was in onboarding. Route on
+      // onboarding.nextStep — not on lawyerProfile/firmProfile being null —
+      // and deliberately ignore any ?context= query param, per the
+      // integration guide (it exists but is unused).
       try {
         const { data } = await profileService.getMe();
         const account = data.data;
+        const nextStep = account.onboarding?.nextStep;
 
-        if (account.role === "LAWYER" && !account.lawyerProfile) {
+        if (nextStep && nextStep !== "complete") {
           setMessage("Redirecting you back to profile setup…");
           router.replace("/register/lawyer-setup");
           return;
         }
-        if (account.role === "FIRM" && !account.firmProfile) {
-          setMessage("Redirecting you back to profile setup…");
-          router.replace("/register/firm-setup");
-          return;
+        if (!nextStep) {
+          // No onboarding field (older backend) — fall back to the old
+          // profile-presence heuristic.
+          if (account.role === "LAWYER" && !account.lawyerProfile) {
+            setMessage("Redirecting you back to profile setup…");
+            router.replace("/register/lawyer-setup");
+            return;
+          }
+          if (account.role === "FIRM" && !account.firmProfile) {
+            setMessage("Redirecting you back to profile setup…");
+            router.replace("/register/firm-setup");
+            return;
+          }
         }
       } catch {
         // fall through to dashboard

@@ -29,7 +29,7 @@ export default function LawyerProfileView({
   return (
     <div className="w-full bg-white min-h-screen">
       {/* Breadcrumb header */}
-      <div className="h-18.75 flex items-center border-b border-[#E5E7EB] px-4">
+      <div className="fixed top-0 left-55 right-0 z-10 bg-white border-b border-[#E6EAED] h-18.75 flex items-center px-6">
         <nav className="flex items-center gap-1.5 text-[14px]">
           <button
             type="button"
@@ -39,11 +39,14 @@ export default function LawyerProfileView({
             {backLabel}
           </button>
           <ChevronRight className="w-4 h-4 text-[#9CA3AF]" />
-          <span className="font-[Instrument_Serif] text-[18px] font-light text-[#1F2937]">
+          <span className="font-[Instrument_Serif] text-[20px] font-light text-[#1F2937]">
             {profileLabel}
           </span>
         </nav>
       </div>
+
+      {/* Spacer for fixed header */}
+      <div className="h-18.75" />
 
       {isLoading ? (
         <div className="flex items-center justify-center h-[70vh]">
@@ -61,25 +64,41 @@ export default function LawyerProfileView({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5 items-start px-4 py-5">
-          <div className="min-w-0">
-            <ProfileCard
-              profile={{
-                ...(account as ProfileData),
-                practiceAreas:
-                  account.practiceAreas?.map((area: unknown) =>
-                    typeof area === "string"
-                      ? area
-                      : (area as { name: string }).name,
-                  ) ?? [],
-              }}
-              isOwnProfile={false}
-            />
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5 items-start px-4 py-5">
+            <div className="min-w-0">
+              <ProfileCard
+                profile={{
+                  ...(account as ProfileData),
+                  practiceAreas:
+                    account.practiceAreas?.map((area: unknown) =>
+                      typeof area === "string"
+                        ? area
+                        : (area as { name: string }).name,
+                    ) ?? [],
+                }}
+                isOwnProfile={false}
+              />
+            </div>
+            {/* Right column spacer */}
+            <div className="min-w-0 border-l border-[#ECECEC] min-h-screen xl:invisible">
+              <EventsPanel />
+            </div>
           </div>
-          <div className="min-w-0">
+
+          {/* Fixed EventsPanel on desktop */}
+          <div
+            className="hidden xl:block fixed top-18.75 border-l border-[#ECECEC] bg-white"
+            style={{
+              right: 0,
+              width: "calc((100vw - 220px) * 0.4)",
+              height: "calc(100vh - 75px)",
+              overflowY: "auto",
+            }}
+          >
             <EventsPanel />
           </div>
-        </div>
+        </>
       )}
     </div>
   );

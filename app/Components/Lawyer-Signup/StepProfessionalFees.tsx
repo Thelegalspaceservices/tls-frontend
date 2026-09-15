@@ -15,6 +15,8 @@ interface Props {
   practiceAreaIds: string[];
   onNext: (fees: AreaFeeEntry[]) => void;
   isLoading?: boolean;
+  /** Fee entries rehydrated from the onboarding draft, if any. */
+  initialFees?: AreaFeeEntry[];
 }
 
 type FeeState = Record<string, { min: string; max: string }>;
@@ -36,12 +38,25 @@ export default function StepProfessionalFees({
   practiceAreaIds,
   onNext,
   isLoading = false,
+  initialFees = [],
 }: Props) {
   const { data: allAreas = [] } = usePracticeAreas();
 
-  const [fees, setFees] = useState<FeeState>(() =>
-    Object.fromEntries(practiceAreaIds.map((id) => [id, { min: "", max: "" }])),
-  );
+  const [fees, setFees] = useState<FeeState>(() => {
+    const byId = new Map(initialFees.map((f) => [f.practiceAreaId, f]));
+    return Object.fromEntries(
+      practiceAreaIds.map((id) => {
+        const saved = byId.get(id);
+        return [
+          id,
+          {
+            min: saved?.minFee ? String(saved.minFee / 100) : "",
+            max: saved?.maxFee ? String(saved.maxFee / 100) : "",
+          },
+        ];
+      }),
+    );
+  });
   const [error, setError] = useState("");
   const [rangeErrors, setRangeErrors] = useState<Record<string, string>>({});
 

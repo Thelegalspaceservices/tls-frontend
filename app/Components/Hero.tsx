@@ -19,7 +19,7 @@ export default function Hero() {
 
   const loginType = (type: "lawyer" | "user") => {
     localStorage.setItem("loginType", type);
-    router.push("/signin");
+    router.push(`/signin?type=${type}`);
   };
 
   return (

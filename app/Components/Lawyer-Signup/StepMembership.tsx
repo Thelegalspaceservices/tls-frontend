@@ -108,15 +108,27 @@ export default function StepMembership({ accountType, onCommunity }: Props) {
     try {
       const res = await membershipService.subscribe({
         callbackUrl: `${window.location.origin}/membership/callback`,
-        context: "onboarding",
-        annual: annually,
+        intervalMonths: annually ? 12 : 6,
       });
-      if (res.data?.authorizationUrl) {
-        window.location.href = res.data.authorizationUrl;
-      } else {
+      if (!res.data?.authorizationUrl) {
         setError("Couldn't start checkout. Please try again.");
         setLoading(false);
+        return;
       }
+      // Reconcile what we displayed against what will actually be charged
+      // before redirecting — amountKobo is the source of truth.
+      const displayedKobo = activePlan.priceKobo * (annually ? 2 : 1);
+      if (
+        typeof res.data.amountKobo === "number" &&
+        res.data.amountKobo !== displayedKobo
+      ) {
+        setError(
+          "The checkout amount doesn't match what was shown here. Please contact support before paying.",
+        );
+        setLoading(false);
+        return;
+      }
+      window.location.href = res.data.authorizationUrl;
     } catch (err: unknown) {
       // 400 here means the origin isn't in FRONTEND_ALLOWED_ORIGINS yet —
       // surface something more useful than the generic fallback for that case.

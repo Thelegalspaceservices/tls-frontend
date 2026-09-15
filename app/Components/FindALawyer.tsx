@@ -179,6 +179,13 @@ function extractClarifyErrorBody(
   return null;
 }
 
+// Both QuestionBlock and ClarifyQuestion sit inside a scroll panel padded
+// with px-4 md:px-8. Pulling the divider out with a matching negative
+// margin (then re-applying the same padding) lets the border-b span the
+// full panel width edge-to-edge instead of stopping at the content's
+// max-w-2xl indent.
+const FULL_BLEED_DIVIDER = "-mx-4 md:-mx-8 px-4 md:px-8";
+
 function QuestionBlock({
   question,
   answer,
@@ -187,12 +194,14 @@ function QuestionBlock({
   answer: string;
 }) {
   return (
-    <div className="pb-8 border-b border-[#EFEFEF] last:border-none">
+    <div
+      className={`${FULL_BLEED_DIVIDER} pb-5 border-b border-[#EFEFEF] last:border-none`}
+    >
       <div className="inline-flex items-center rounded-full border border-[#E67E22] px-5 py-2.5 bg-white shadow-sm">
         <p className="text-[14px] font-medium text-[#202020]">{question}</p>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <div className="inline-flex items-center rounded-2xl bg-[#EEF4FF] px-5 py-3 text-[14px] font-medium text-[#2D6BFF] shadow-sm">
           {answer}
         </div>
@@ -213,12 +222,14 @@ function ClarifyQuestion({
   disabled?: boolean;
 }) {
   return (
-    <div className="pb-8 border-b border-[#EFEFEF] last:border-none">
+    <div
+      className={`${FULL_BLEED_DIVIDER} pb-5 border-b border-[#EFEFEF] last:border-none`}
+    >
       <div className="inline-flex items-center rounded-full border border-[#E67E22] px-5 py-2.5 bg-white shadow-sm">
         <p className="text-[14px] font-medium text-[#202020]">{question}</p>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {options.map((opt) => (
           <button
             key={opt.value}
@@ -550,14 +561,14 @@ function OfferBanner({ offer }: { offer: MatchOffer }) {
 function BudgetRelaxedBanner() {
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-5">
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2">
         <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
         <div>
           <p className="text-[13px] font-semibold text-amber-900">
-            No lawyers matched your budget for this matter
+            No lawyers matched your budget
           </p>
           <p className="text-[13px] leading-6 text-amber-800 mt-1">
-            This is the closest fit, and may cost more than you indicated.
+            This is the closest fit and may cost more than indicated.
           </p>
         </div>
       </div>
@@ -576,7 +587,7 @@ function classifyRole(account: MatchResult["account"]): "lawyer" | "firm" {
 function BlockedCard({ blocked }: { blocked: BlockedState }) {
   const title =
     blocked.type === "quota"
-      ? "You've used your matches for this type of matter"
+      ? "You've used your matches for this matter"
       : blocked.type === "cooldown"
         ? "You'll be matched again soon"
         : "No match found right now";
@@ -589,11 +600,11 @@ function BlockedCard({ blocked }: { blocked: BlockedState }) {
 
   return (
     <div className="rounded-3xl border border-[#ECECEC] bg-white p-10 text-center">
-      <div className="w-16 h-16 rounded-3xl bg-[#F7F7F7] border border-[#EFEFEF] mx-auto flex items-center justify-center mb-6">
+      <div className="w-16 h-16 rounded-3xl bg-[#F7F7F7] border border-[#EFEFEF] mx-auto flex items-center justify-center mb-2">
         {icon}
       </div>
-      <h3 className="text-[18px] font-semibold text-[#202020]">{title}</h3>
-      <p className="text-[14px] text-[#6B7280] mt-3 leading-7 max-w-md mx-auto">
+      <h3 className="text-[15px] font-semibold text-[#202020]">{title}</h3>
+      <p className="text-[13px] text-[#6B7280] mt-1 leading-6 max-w-md mx-auto">
         {blocked.message}
       </p>
       {blocked.type === "quota" && (
@@ -992,22 +1003,22 @@ export default function FindALawyer() {
             <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8 h-full min-h-0">
               {!hasSearched && (
                 <div className="max-w-2xl">
-                  <div className="pb-8 border-b border-[#EFEFEF]">
+                  <div className={`${FULL_BLEED_DIVIDER} pb-5 border-b border-[#EFEFEF]`}>
                     <GradientPill>The Legal Space AI</GradientPill>
 
-                    <p className="mt-6 text-[14px] leading-8 text-[#374151] font-['Geist'] max-w-xl">
+                    <p className="mt-4 text-[14px] leading-7 text-[#374151] font-['Geist'] max-w-xl">
                       Tell me your situation in plain language. I will read your
                       intent, tag it to the right area of law, and match you
                       with verified professionals.
                     </p>
 
-                    <p className="mt-2 text-[14px] leading-8 font-bold text-[#3A3A3A] max-w-xl">
+                    <p className="mt-2 text-[14px] leading-7 font-bold text-[#3A3A3A] max-w-xl">
                       Note: Only send a request if you&apos;re ready to speak
                       with a lawyer.
                     </p>
                   </div>
 
-                  <div className="pt-8">
+                  <div className="pt-5">
                     <GradientPill>
                       What is your legal matter about?
                     </GradientPill>
@@ -1017,16 +1028,16 @@ export default function FindALawyer() {
 
               {isSearching && (
                 <div className="h-full flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-4">
+                  <div className="flex flex-col items-center gap-2">
                     <Loader2 className="w-8 h-8 text-[#1D4ED8] animate-spin" />
 
                     <div className="text-center">
-                      <p className="text-[16px] font-medium text-[#202020]">
+                      <p className="text-[15px] font-medium text-[#202020]">
                         Analysing your request
                       </p>
 
-                      <p className="text-[14px] text-[#777] mt-1">
-                        Finding the best legal matches for you...
+                      <p className="text-[13px] text-[#777] mt-1">
+                        Finding your best matches...
                       </p>
                     </div>
                   </div>
@@ -1035,13 +1046,13 @@ export default function FindALawyer() {
 
               {!isSearching && clarifyState && (
                 <div className="max-w-2xl">
-                  <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                  <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
                     <p className="text-[13px] leading-6 text-amber-800">
                       {clarifyState.message}
                     </p>
                   </div>
 
-                  <div className="space-y-8">
+                  <div className="space-y-5">
                     {clarifySteps
                       .filter(
                         (step) =>
@@ -1087,7 +1098,7 @@ export default function FindALawyer() {
               )}
 
               {!isSearching && !clarifyState && searchState && extracted && (
-                <div className="max-w-2xl space-y-8">
+                <div className="max-w-2xl space-y-5">
                   <QuestionBlock
                     question="What is your legal matter about?"
                     answer={extracted.matter?.name || "General Legal Matter"}
@@ -1133,14 +1144,14 @@ export default function FindALawyer() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="border-t border-[#ECECEC] bg-white px-4 md:px-6 py-5 shrink-0">
+            <div className="border-t border-[#ECECEC] bg-white px-4 md:px-6 py-4 shrink-0">
               {validationError && (
-                <p className="text-[12px] text-red-500 mb-3">
+                <p className="text-[12px] text-red-500 mb-2">
                   {validationError}
                 </p>
               )}
 
-              <div className="flex items-center gap-3  bg-white  py-4 ">
+              <div className="flex items-center gap-3 bg-white">
                 <textarea
                   ref={inputRef}
                   rows={1}
@@ -1156,13 +1167,13 @@ export default function FindALawyer() {
                       handleSubmit();
                     }
                   }}
-                  className="flex-1 resize-none bg-transparent outline-none text-[15px] leading-7 text-[#202020] placeholder:text-[#999]  rounded-lg border border-[#EAEAEA] px-2.5 py-1 h-9.5 "
+                  className="flex-1 resize-none bg-transparent outline-none text-[15px] leading-7 text-[#202020] placeholder:text-[#999] rounded-full border border-[#EAEAEA] px-5 py-2 h-11 focus:border-[#1D4ED8]"
                 />
 
                 <button
                   onClick={handleSubmit}
                   disabled={!inputValue.trim() || isSearching}
-                  className="w-9.5 h-9.5 rounded-lg bg-[#1D4ED8] flex items-center justify-center hover:bg-[#1947C6] transition-colors disabled:opacity-40 shrink-0"
+                  className="w-11 h-11 rounded-full bg-[#1D4ED8] flex items-center justify-center hover:bg-[#1947C6] transition-colors disabled:opacity-40 shrink-0"
                 >
                   {isSearching ? (
                     <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -1183,7 +1194,7 @@ export default function FindALawyer() {
           >
             <div className="px-4 md:px-8 py-6 md:py-8 max-w-3xl">
               {showMobileResults && (
-                <div className="flex items-center justify-between mb-6 md:hidden">
+                <div className="flex items-center justify-between mb-5 md:hidden">
                   <button
                     onClick={handleCancelMobileResults}
                     className="flex items-center gap-2 rounded-full bg-white border border-[#EAEAEA] px-4 py-2 text-[13px] font-medium text-[#444] hover:bg-[#FAFAFA] transition-colors"
@@ -1194,15 +1205,14 @@ export default function FindALawyer() {
                 </div>
               )}
               {searchState && (
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-5">
                   <div>
                     <h2 className="text-[30px] font-[Instrument_serif] text-[#202020] leading-none">
                       {matchSummaryText}
                     </h2>
 
-                    <p className="text-[14px] text-[#777] mt-3">
-                      You can only send a request to someone you were matched
-                      with.
+                    <p className="text-[13px] text-[#777] mt-1">
+                      You can only request someone you were matched with.
                     </p>
                   </div>
                 </div>
@@ -1216,7 +1226,7 @@ export default function FindALawyer() {
               )}
 
               {searchState && !blockedState && (
-                <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar">
+                <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar">
                   <button
                     type="button"
                     onClick={() => setActiveTab("all")}
@@ -1256,18 +1266,17 @@ export default function FindALawyer() {
               {!hasSearched && (
                 <div className="h-[70vh] flex items-center justify-center">
                   <div className="text-center max-w-sm">
-                    <div className="w-16 h-16 rounded-3xl bg-white border border-[#EFEFEF] shadow-sm mx-auto flex items-center justify-center mb-6">
+                    <div className="mx-auto flex items-center justify-center mb-2">
                       <Users className="w-7 h-7 text-[#999]" />
                     </div>
 
-                    <h3 className="text-[20px] font-semibold text-[#202020]">
-                      Firm and lawyer matches will appear here
+                    <h3 className="text-[15px] font-semibold text-[#202020]">
+                      Matches will appear here
                     </h3>
 
-                    <p className="text-[15px] leading-7 text-[#777] mt-4">
-                      Once you describe your legal situation, we will find the
-                      best legal matches (law firms and independent lawyers)
-                      based on expertise, budget, and location.
+                    <p className="text-[13px] leading-6 text-[#777] mt-1">
+                      Describe your situation and we&apos;ll match you with
+                      firms and lawyers by expertise, budget, and location.
                     </p>
                   </div>
                 </div>
@@ -1290,22 +1299,22 @@ export default function FindALawyer() {
                     ))
                   ) : matchItems.length === 0 ? (
                     <div className="rounded-3xl border border-[#ECECEC] bg-white p-10 text-center">
-                      <h3 className="text-[18px] font-semibold text-[#202020]">
-                        We were unable to find a match right now
+                      <h3 className="text-[15px] font-semibold text-[#202020]">
+                        No match found right now
                       </h3>
-                      <p className="text-[14px] text-[#777] mt-3 leading-7 max-w-md mx-auto">
-                        Try describing a different type of legal matter, or
-                        check back shortly.
+                      <p className="text-[13px] text-[#777] mt-1 leading-6 max-w-md mx-auto">
+                        Try a different type of legal matter, or check back
+                        shortly.
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-3xl border border-[#ECECEC] bg-white p-10 text-center">
-                      <h3 className="text-[18px] font-semibold text-[#202020]">
+                      <h3 className="text-[15px] font-semibold text-[#202020]">
                         {activeTab === "firms"
                           ? "No firms matched"
                           : "No lawyers matched"}
                       </h3>
-                      <p className="text-[14px] text-[#777] mt-3 leading-7 max-w-md mx-auto">
+                      <p className="text-[13px] text-[#777] mt-1 leading-6 max-w-md mx-auto">
                         Check out the{" "}
                         <button
                           onClick={() =>

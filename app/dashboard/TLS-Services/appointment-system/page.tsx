@@ -26,9 +26,22 @@ export default function Page() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] items-start">
         <AppointmentForm />
-        <div className="min-w-0">
+        <div className="min-w-0 border-l border-[#ECECEC] min-h-screen xl:invisible">
           <EventsPanel />
         </div>
+      </div>
+
+      {/* Fixed EventsPanel on desktop */}
+      <div
+        className="hidden xl:block fixed top-18.75 border-l border-[#ECECEC] bg-white"
+        style={{
+          right: 0,
+          width: "calc((100vw - 220px) * 0.4)",
+          height: "calc(100vh - 75px)",
+          overflowY: "auto",
+        }}
+      >
+        <EventsPanel />
       </div>
     </div>
   )

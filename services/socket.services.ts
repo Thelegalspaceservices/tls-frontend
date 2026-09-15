@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 
-const BASE_URL = process.env.API_URL ?? "";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 let socket: Socket | null = null;
 let socketToken: string | null = null;

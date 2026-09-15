@@ -19,7 +19,7 @@ type SessionTokens = {
 // the backend then replies "Route POST://api/v1/... not found" because no
 // route matches the doubled path. Normalising both parts here fixes that
 // regardless of which slash form the env vars use.
-const API_URL = (process.env.API_URL ?? "").replace(/\/+$/, "");
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 const API_PATH = (process.env.NEXT_PUBLIC_API_PATH ?? "/api/v1").replace(
   /^\/+|\/+$/g,
   "",
@@ -176,11 +176,19 @@ api.interceptors.response.use(
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && !original._retry) {
+    // Only refresh-and-retry when the failed request actually carried a Bearer
+    // token. Unauthenticated endpoints such as /auth/login legitimately return
+    // 401 ("Invalid login credentials") — those must be surfaced to the caller,
+    // not routed into the expired-token refresh flow.
+    const authHeader = original.headers?.["Authorization"];
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      typeof authHeader === "string"
+    ) {
       original._retry = true;
 
       // If another concurrent request already refreshed the token, just retry.
-      const authHeader = original.headers?.["Authorization"];
       const sentToken =
         typeof authHeader === "string" ? authHeader.split(" ")[1] : undefined;
       const currentToken = getStoredToken("accessToken");

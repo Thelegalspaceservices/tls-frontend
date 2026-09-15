@@ -34,10 +34,10 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="bg-white">
+    <main className="bg-white min-h-screen">
       {/* Tabs */}
-      <div className="fixed bg-white w-full ">
-        <div className="flex gap-2 px-4 pt-4 pb-3  bg-white w-full h-18.5">
+      <div className="fixed top-0 left-55 right-0 z-10 bg-white border-b border-[#E6EAED]">
+        <div className="flex gap-2 px-6 pt-4 pb-3.25 bg-white w-full h-18.75 items-center">
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -52,11 +52,10 @@ export default function FeedPage() {
             </button>
           ))}
         </div>
-        <div className="border-t border-[#E6EAED] " />
       </div>
 
       {/* Spacer for fixed header */}
-      <div className="h-18.5" />
+      <div className="h-18.75" />
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] items-start">
         <Feed activeTab={activeTab} />
@@ -68,11 +67,11 @@ export default function FeedPage() {
 
       {/* Fixed EventsPanel on desktop — immune to ancestor overflow changes */}
       <div
-        className="hidden xl:block fixed top-18.5 border-l border-[#ECECEC] bg-white"
+        className="hidden xl:block fixed top-18.75 border-l border-[#ECECEC] bg-white"
         style={{
           right: 0,
           width: "calc((100vw - 220px) * 0.4)",
-          height: "calc(100vh - 74px)",
+          height: "calc(100vh - 75px)",
           overflowY: "auto",
         }}
       >

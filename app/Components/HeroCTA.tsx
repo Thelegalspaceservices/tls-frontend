@@ -9,7 +9,7 @@ export default function HeroCTA() {
 
   const loginType = (type: "lawyer" | "user") => {
     localStorage.setItem("loginType", type);
-    router.push("/signin");
+    router.push(`/signin?type=${type}`);
   };
 
   return (

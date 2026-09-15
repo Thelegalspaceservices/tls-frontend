@@ -9,7 +9,7 @@ import Navbar from "../Navbar";
 import Image from "next/image";
 import WaitlistPlaceholder from "../WaitlistPlaceholder";
 
-import signupIllustration from "@/public/signupillustration.png";
+import signupHeroImage from "@/public/signup-hero.png";
 import { AuthError, useAuth } from "@/app/context/AuthContext";
 
 /**
@@ -161,8 +161,8 @@ export default function StepEmail({
             {/* Illustration */}
             <div className="hidden lg:block  overflow-hidden">
               <Image
-                src={signupIllustration}
-                alt="The Legal Space community illustration"
+                src={signupHeroImage}
+                alt="Scales of justice on a desk"
                 className="w-full h-full object-cover "
                 priority
               />
@@ -202,7 +202,7 @@ export default function StepEmail({
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400 pointer-events-none" />
             <input
               type="email"
-              placeholder="Enter your Nigerian Bar email (username@nigerianbar.ng)"
+              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

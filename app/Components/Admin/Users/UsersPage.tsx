@@ -11,6 +11,7 @@ import TableToolbar from "../shared/TableToolbar";
 import TablePagination from "../shared/TablePagination";
 import UserDetailModal from "./UserDetailModal";
 import { useAdminUsers, useAdminUserStats } from "@/hooks/useAdmin";
+import { getDisplayStatus } from "@/app/utils/adminStatus";
 
 const TYPE_OPTIONS = [
   { label: "Lawyer", value: "LAWYER" },
@@ -54,22 +55,26 @@ export default function UsersPage() {
   const items = data?.items ?? [];
   const statusPriority = (status: string) => {
     switch (status) {
-      case "active":
-        return 0;
       case "under_review":
+        return 0;
+      case "pending":
         return 1;
-      case "suspended":
+      case "active":
         return 2;
-      case "deleted":
+      case "rejected":
         return 3;
-      default:
+      case "suspended":
         return 4;
+      case "deleted":
+        return 5;
+      default:
+        return 6;
     }
   };
 
   const sortedItems = [...items].sort((a, b) => {
-    const aGroup = statusPriority(a.status);
-    const bGroup = statusPriority(b.status);
+    const aGroup = statusPriority(getDisplayStatus(a));
+    const bGroup = statusPriority(getDisplayStatus(b));
 
     if (aGroup !== bGroup) {
       return aGroup - bGroup;
@@ -204,7 +209,7 @@ export default function UsersPage() {
                       {u.membershipTier}
                     </td>
                     <td className="px-5 py-3.5">
-                      <StatusBadge status={u.status} />
+                      <StatusBadge status={getDisplayStatus(u)} />
                     </td>
                     <td className="px-5 py-3.5">
                       <button

@@ -40,6 +40,31 @@ export interface AuthResponse {
       lawyerProfile: null | Record<string, unknown>;
       firmProfile: null | Record<string, unknown>;
       practiceAreaLinks: unknown[];
+      // NEW — drives the redesigned lawyer/firm onboarding wizard. Route on
+      // this, not on lawyerProfile/firmProfile being null (see
+      // getPostAuthRoute in AuthContext.tsx). null for non-professional
+      // accounts (USER/ADMIN) and, on older backends that predate this
+      // field, may be absent entirely — treat both the same.
+      onboarding?: {
+        nextStep:
+          | "bar_details"
+          | "identity"
+          | "submit_application"
+          | "await_review"
+          | "await_dispute"
+          | "rejected"
+          | "select_plan"
+          | "profile_setup"
+          | "complete"
+          | null;
+        verificationStatus?: string;
+        hasBarDetails: boolean;
+        identityChecked: boolean;
+        applicationSubmitted: boolean;
+        profileComplete: boolean;
+        disputeOpen: boolean;
+      } | null;
+      practiceAreaLimit?: number;
     };
     session: {
       accessToken: string;

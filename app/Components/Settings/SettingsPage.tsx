@@ -93,7 +93,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Scrollable content */}
-      <div className="overflow-y-auto flex-1 px-4 divide-y divide-gray-100 py-3 w-[70%] border-r border-[#E5E7EB] mt-20">
+      <div className="overflow-y-auto flex-1 px-4 divide-y divide-gray-100 py-3 w-[70%] border-r border-[#E5E7EB] mt-18">
         <PersonalInfoSection
           fullName={account.fullName ?? ""}
           email={account.email ?? ""}

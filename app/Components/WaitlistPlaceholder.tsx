@@ -1,15 +1,41 @@
 // app/Components/WaitlistPlaceholder.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2, Mail, User } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import RecaptchaCheckbox from "./RecaptchaCheckbox";
-import { CHECKBOX_ENABLED } from "@/lib/captcha/widget";
+
+// Cloudflare Turnstile is loaded from its CDN and driven through the
+// `window.turnstile` global it installs. Declared here (same pattern the
+// signup flow uses for `grecaptcha`) so the calls below are typed.
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "expired-callback"?: () => void;
+          "error-callback"?: () => void;
+        },
+      ) => string;
+      reset: (widgetId?: string) => void;
+      remove: (widgetId?: string) => void;
+    };
+  }
+}
 
 export type WaitlistVariant = "lawyer" | "user";
+
+const TURNSTILE_SCRIPT_SRC =
+  "https://challenges.cloudflare.com/turnstile/v0/api.js";
+// NEXT_PUBLIC_* so Next.js inlines it into the browser bundle. The matching
+// secret is server-only and read in app/api/waitlist/route.ts.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 const COPY: Record<
   WaitlistVariant,
@@ -40,6 +66,11 @@ interface WaitlistPlaceholderProps {
  *
  * It accepts an optional `variant` ("lawyer" | "user") or reads from URL/localStorage
  * and renders the matching waitlist form.
+ *
+ * Bot protection: a real Cloudflare Turnstile widget issues a single-use token
+ * that is sent to /api/waitlist and verified server-side before anything is
+ * written. There is no longer a client-only checkbox — the server is the
+ * authority on whether a submission is human.
  */
 export default function WaitlistPlaceholder({
   variant: initialVariant,
@@ -70,11 +101,65 @@ export default function WaitlistPlaceholder({
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [notARobot, setNotARobot] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReady, setTurnstileReady] = useState(false);
+
+  const renderTurnstile = () => {
+    if (!TURNSTILE_SITE_KEY) return;
+    if (typeof window === "undefined") return;
+    if (!window.turnstile || !turnstileContainerRef.current) return;
+    if (turnstileWidgetIdRef.current) return; // already rendered, avoid duplicates
+    turnstileWidgetIdRef.current = window.turnstile.render(
+      turnstileContainerRef.current,
+      {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(null),
+        "error-callback": () => setTurnstileToken(null),
+      },
+    );
+  };
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    if (
+      typeof window !== "undefined" &&
+      window.turnstile &&
+      turnstileWidgetIdRef.current
+    ) {
+      window.turnstile.reset(turnstileWidgetIdRef.current);
+    }
+  };
+
+  // Draw the widget once Turnstile's loader has fired onLoad. The render call is
+  // guarded by the widget id ref, so a re-run can't produce a duplicate widget.
+  useEffect(() => {
+    if (turnstileReady) renderTurnstile();
+  }, [turnstileReady]);
+
+  // Turnstile owns the DOM it injects; tear it down when the form unmounts.
+  useEffect(() => {
+    return () => {
+      if (
+        typeof window !== "undefined" &&
+        window.turnstile &&
+        turnstileWidgetIdRef.current
+      ) {
+        try {
+          window.turnstile.remove(turnstileWidgetIdRef.current);
+        } catch {
+          // Widget already gone — nothing to remove.
+        }
+      }
+      turnstileWidgetIdRef.current = null;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -83,31 +168,20 @@ export default function WaitlistPlaceholder({
       setError("Please fill in your name and email.");
       return;
     }
-    // With a site key configured the real widget owns this check; without one,
-    // fall back to the local confirmation so dev/preview still submits.
-    if (CHECKBOX_ENABLED ? !captchaToken : !notARobot) {
-      setError(
-        CHECKBOX_ENABLED
-          ? "Please complete the reCAPTCHA check."
-          : "Please confirm you're not a robot.",
-      );
+    // The widget issues a token only once the challenge is solved.
+    if (!turnstileToken) {
+      setError("Please complete the verification challenge.");
       return;
     }
     setLoading(true);
     try {
-      // The token came from the widget's callback and is sent as-is; the
-      // /api/waitlist route verifies it via the Enterprise assessments API.
       // Persist the signup server-side (frontend /api/waitlist route) into the
-      // waitlist spreadsheet, then show the success state.
+      // waitlist spreadsheet, then show the success state. The Turnstile token
+      // is single-use and verified on the server via Cloudflare's siteverify.
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName,
-          email,
-          variant,
-          ...(captchaToken ? { captchaToken } : {}),
-        }),
+        body: JSON.stringify({ fullName, email, variant, turnstileToken }),
       });
       const data = await res.json().catch(() => null);
       // The API returns HTTP 200 with a `duplicate: true` flag when this email
@@ -120,6 +194,10 @@ export default function WaitlistPlaceholder({
       }
       setSubmitted(true);
     } catch (err) {
+      // Turnstile tokens are single-use: if the server rejected the request for
+      // any reason the widget must be reset, otherwise a retry would silently
+      // fail token verification.
+      resetTurnstile();
       setError(
         err instanceof Error
           ? err.message
@@ -213,45 +291,15 @@ export default function WaitlistPlaceholder({
           <p className="text-[13px] text-gray-500">{copy.social}</p>
         </div>
 
-        {/* The real reCAPTCHA Enterprise checkbox when a site key is
-            configured; otherwise the local affordance so dev/preview submits. */}
-        {CHECKBOX_ENABLED ? (
-          <div className="flex justify-center px-4 py-3 border border-gray-200 rounded-xl">
-            <RecaptchaCheckbox
-              onToken={(token) => {
-                setCaptchaToken(token);
-                setError("");
-              }}
-              onExpired={() => setCaptchaToken("")}
-              onError={() => {
-                setCaptchaToken("");
-                setError(
-                  "We couldn't load the security check. Please refresh the page.",
-                );
-              }}
-            />
-          </div>
-        ) : (
-          <label className="flex items-center justify-between gap-3 px-4 py-3 border border-gray-200 rounded-xl cursor-pointer select-none">
-            <span className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={notARobot}
-                onChange={(e) => setNotARobot(e.target.checked)}
-                disabled={loading}
-                className="w-5 h-5 rounded border-gray-300 accent-[#1A56DB]"
-              />
-              <span className="text-[14px] text-gray-700">
-                {"I'm not a robot"}
-              </span>
-            </span>
-            <span className="text-[10px] text-gray-400 text-right leading-tight">
-              reCAPTCHA
-              <br />
-              Privacy · Terms
-            </span>
-          </label>
-        )}
+        {/* Real Cloudflare Turnstile widget — the server rejects any submission
+            whose token it can't verify. */}
+        <Script
+          src={TURNSTILE_SCRIPT_SRC}
+          async
+          defer
+          onLoad={() => setTurnstileReady(true)}
+        />
+        <div ref={turnstileContainerRef} className="flex justify-center" />
 
         {/* Submit */}
         <button

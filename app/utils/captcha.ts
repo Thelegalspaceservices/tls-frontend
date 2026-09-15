@@ -1,9 +1,13 @@
 // app/utils/captcha.ts
 //
-// CLIENT-ONLY reCAPTCHA token minting for browser forms — professional signup and
-// the waitlist. This module runs in the browser, so it reads only NEXT_PUBLIC_*
-// values; the matching secret, score and action checks live server-side in
-// lib/captcha/server.ts and must never be referenced here.
+// CLIENT-ONLY reCAPTCHA token minting for the professional-signup form. This
+// module runs in the browser, so it reads only NEXT_PUBLIC_* values; the matching
+// secret, score and action checks live server-side (the backend captcha service,
+// backend/src/services/captcha.ts) and must never be referenced here.
+//
+// NOTE: the waitlist form deliberately does NOT use this module — it is
+// protected by Cloudflare Turnstile, whose token is verified in
+// app/api/waitlist/route.ts.
 //
 // reCAPTCHA Enterprise is the default. Keys minted in the Google Cloud reCAPTCHA
 // console are served by enterprise.js and driven through grecaptcha.enterprise —
@@ -12,14 +16,12 @@
 // classic v3 key, which uses api.js and grecaptcha.execute. The executor is
 // resolved at call time, so either surface works once the script is loaded.
 //
-// Each caller passes a distinct `action` so a token minted for one form can't be
-// replayed against another. With no site key the helper resolves to `undefined`
-// (captcha deliberately off); once a site key is set, failing to mint throws.
-import { CAPTCHA_ACTIONS } from "@/lib/captcha/actions";
+// With no site key the helper resolves to `undefined` (captcha deliberately off);
+// once a site key is set, failing to mint throws.
 
-// Re-exported so callers can keep importing the action names from this module.
-export { CAPTCHA_ACTIONS };
-export type { CaptchaAction } from "@/lib/captcha/actions";
+// The action this form mints its token under, declared locally so the module
+// owns its own constant instead of importing a shared actions file.
+const PROFESSIONAL_SIGNUP_ACTION = "professional_signup";
 
 declare global {
   interface Window {
@@ -39,7 +41,7 @@ const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 // console issues today.
 const IS_ENTERPRISE = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE !== "false";
 const SCRIPT_ID = IS_ENTERPRISE ? "recaptcha-enterprise" : "recaptcha-v3";
-const DEFAULT_ACTION = CAPTCHA_ACTIONS.professionalSignup;
+const DEFAULT_ACTION = PROFESSIONAL_SIGNUP_ACTION;
 const LOAD_TIMEOUT_MS = 10_000;
 const MINT_TIMEOUT_MS = 10_000;
 
@@ -115,8 +117,8 @@ function loadScript(): Promise<void> {
  * token is a real failure: this throws rather than returning `undefined` and
  * letting the server reject with an opaque "missing token".
  *
- * @param action Endpoint-specific action, e.g. `CAPTCHA_ACTIONS.waitlistSignup`.
- *               Defaults to the professional-signup action for backward compat.
+ * @param action Endpoint-specific action. Defaults to the professional-signup
+ *               action for backward compat.
  * @throws Error with a user-safe message when the challenge can't be completed.
  */
 export async function getRecaptchaToken(

@@ -1,6 +1,6 @@
 import Navbar from "./Components/Navbar";
 import Hero from "./Components/Hero";
-import InfoSection from "./Components/InfoSection";
+// import InfoSection from "./Components/InfoSection";
 import Features from "./Components/Features";
 import HowItWorks from "./Components/HowItWorks";
 import LegalInsights from "./Components/LegalInsights";
@@ -13,7 +13,7 @@ export default function Home() {
     <div>
       <Navbar />
       <Hero />
-      <InfoSection />
+      {/* <InfoSection /> */}
       <div className="w-full  bg-[#F7F8FA]">
         <Features />
       </div>

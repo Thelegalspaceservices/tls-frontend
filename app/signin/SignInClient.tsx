@@ -131,7 +131,7 @@ export default function SignInClient() {
       <Navbar />
 
       {/* Main content area — vertically centered */}
-      <main className="flex-1 w-full flex items-center pb-0">
+      <main className="flex-1 w-full flex items-center pb-0 ">
         {/*
           mt-30 lg:mt-0 keeps content clear of the fixed Navbar on small
           viewports (main is vertically centered within the full-height
@@ -140,7 +140,7 @@ export default function SignInClient() {
           underneath it). Mirrors the same offset already used in
           StepEmail.tsx for consistency.
         */}
-        <div className="w-full mx-auto mt-30 lg:mt-0">
+        <div className="w-full mx-auto mt-16 lg:mt-0 md:mt-8">
           <div className="grid grid-cols-1 lg:grid-cols-2  items-center gap-2">
             {/* Illustration — desktop only */}
             <div className="hidden lg:block">

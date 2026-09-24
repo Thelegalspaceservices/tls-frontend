@@ -215,7 +215,7 @@ export default function WaitlistPlaceholder({
 
   if (submitted) {
     return (
-      <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-0 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
+      <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-8 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
         <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3 leading-tight font-dmSans text-gray-900">
           Thanks, {fullName.split(" ")[0] || "there"} 😊.
         </h1>
@@ -233,7 +233,7 @@ export default function WaitlistPlaceholder({
   }
 
   return (
-    <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-0 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
+    <div className="w-full flex flex-col justify-center pt-6 pb-8 lg:py-0 max-w-160 mx-auto mt-8 px-4 lg:px-10 lg:mt-0 lg:mx-0 font-dmSans">
       <span className="inline-block w-fit mb-6 px-3 py-1.5 bg-blue-50 text-[#1A56DB] text-[12px] font-medium rounded-full font-dmSans">
         THE LEGAL SPACE IS LAUNCHING SOON!!! 🎉
       </span>
